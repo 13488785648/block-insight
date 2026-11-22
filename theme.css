@@ -1,0 +1,46 @@
+/* ============================================================
+   墨读 · 主题配置
+   改这个文件就能换配色和字体，不用动 MDReader.html。
+   加载顺序在页面样式之后，这里的值会覆盖默认值。
+   ============================================================ */
+
+:root {
+  /* 纸与墨 */
+  --paper:      #faf7f0;   /* 页面底色 */
+  --paper-2:    #f3eee3;   /* 卡片 / 次级底 */
+  --paper-3:    #eae3d4;   /* 图片占位底 */
+  --ink:        #191714;   /* 正文 */
+  --ink-soft:   #4a443c;   /* 次级正文 */
+  --muted:      #8b8377;   /* 弱信息 */
+  --line:       #e2dacb;   /* 分隔线 */
+
+  /* 强调色（朱砂） */
+  --red:        #1b53ef;
+  --red-soft:   #416fee;
+
+  /* 代码块 */
+  --code-bg:    #201c17;
+  --code-fg:    #ece3d3;
+
+  /* 阴影 */
+  --shadow: 0 1px 2px rgba(25,23,20,.04), 0 8px 24px -12px rgba(25,23,20,.14);
+
+  /* 字体：中文衬线 + 无衬线，都带系统回退 */
+  --serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, "Times New Roman", serif;
+  --sans:  "Noto Sans SC", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html[data-theme="dark"] {
+  --paper:      #12110e;
+  --paper-2:    #1a1814;
+  --paper-3:    #232019;
+  --ink:        #ece5d8;
+  --ink-soft:   #bdb4a4;
+  --muted:      #857c6d;
+  --line:       #2c2721;
+  --red:        #1b53ef;
+  --red-soft:   #416fee;
+  --code-bg:    #0b0a08;
+  --code-fg:    #dfd6c6;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.55);
+}

@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f0">
+<title>墨读 · MDReader</title>
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* ============ 基础变量 ============ */
+:root{
+  --paper:#faf7f0; --paper-2:#f3eee3; --paper-3:#eae3d4;
+  --ink:#191714; --ink-soft:#4a443c; --muted:#8b8377; --line:#e2dacb;
+  --red:#a6422e; --red-soft:#c4644e;
+  --code-bg:#201c17; --code-fg:#ece3d3;
+  --shadow:0 1px 2px rgba(25,23,20,.04), 0 8px 24px -12px rgba(25,23,20,.14);
+  --rail:264px; --toc:224px; --pad:48px;
+  --serif:"Noto Serif SC","Songti SC","SimSun",Georgia,"Times New Roman",serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+html[data-theme="dark"]{
+  --paper:#12110e; --paper-2:#1a1814; --paper-3:#232019;
+  --ink:#ece5d8; --ink-soft:#bdb4a4; --muted:#857c6d; --line:#2c2721;
+  --red:#d8664c; --red-soft:#e0856f;
+  --code-bg:#0b0a08; --code-fg:#dfd6c6;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--serif); -webkit-font-smoothing:antialiased;
+  transition:background .35s ease, color .35s ease;
+  overflow-x:hidden;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+  background-image:
+    radial-gradient(1200px 600px at 12% -8%, rgba(166,66,46,.045), transparent 60%),
+    radial-gradient(900px 500px at 92% 4%, rgba(25,23,20,.035), transparent 62%);
+}
+html[data-theme="dark"] body::before{opacity:.7}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img{max-width:100%}
+
+/* ============ 顶栏 ============ */
+.topbar{
+  position:sticky; top:0; z-index:60;
+  background:color-mix(in srgb, var(--paper) 84%, transparent);
+  backdrop-filter:saturate(1.2) blur(14px); -webkit-backdrop-filter:saturate(1.2) blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:1440px; margin:0 auto; height:62px; padding:0 22px;
+  display:flex; align-items:center; gap:14px;
+}
+.brand{display:flex;align-items:center;gap:10px;flex:none}
+.brand-mark{
+  width:22px;height:22px;border-radius:2px;background:var(--red);
+  display:grid;place-items:center;color:#fff;font-family:var(--serif);
+  font-size:12px;font-weight:700;letter-spacing:-.5px;line-height:1;
+}
+.brand-name{font-family:var(--serif);font-weight:700;font-size:15px;letter-spacing:.12em}
+.brand-sub{font-family:var(--sans);font-size:10px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;padding-left:2px}
+.crumb{
+  flex:1; min-width:0; display:flex; align-items:center; gap:8px;
+  font-family:var(--sans); font-size:12px; color:var(--muted);
+  overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+}
+.crumb b{color:var(--ink);font-weight:500}
+.top-actions{display:flex;align-items:center;gap:6px;flex:none}
+.icon-btn{
+  width:34px;height:34px;display:grid;place-items:center;border-radius:3px;
+  color:var(--ink-soft);transition:background .2s,color .2s;
+}
+.icon-btn:hover{background:var(--paper-2);color:var(--ink)}
+.icon-btn svg{width:17px;height:17px}
+.menu-btn{display:none}
+.progress{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--red);transition:width .1s linear;z-index:2}
+
+/* ============ 布局 ============ */
+.layout{
+  position:relative; z-index:1;
+  max-width:1440px; margin:0 auto; padding:0 22px;
+  display:grid; grid-template-columns:var(--rail) minmax(0,1fr) var(--toc);
+  gap:0; align-items:start;
+}
+.rail{
+  position:sticky; top:62px; height:calc(100vh - 62px); overflow:hidden;
+  display:flex; flex-direction:column; padding:26px 20px 40px 0;
+  border-right:1px solid var(--line);
+}
+.rail-scroll{overflow-y:auto; overscroll-behavior:contain; padding-right:10px; scrollbar-width:thin}
+.rail-title{
+  font-family:var(--sans);font-size:10.5px;letter-spacing:.2em;color:var(--muted);
+  text-transform:uppercase;margin:0 0 14px 2px;
+}
+.rail-search{
+  display:flex;align-items:center;gap:6px;margin:0 0 18px;
+  border:1px solid var(--line);border-radius:3px;padding:7px 9px;background:var(--paper-2);
+}
+.rail-search svg{width:13px;height:13px;color:var(--muted);flex:none}
+.rail-search input{
+  border:0;background:none;outline:none;width:100%;font-family:var(--sans);
+  font-size:12px;color:var(--ink);min-width:0;
+}
+.rail-search input::placeholder{color:var(--muted)}
+.tree-group{margin-bottom:6px}
+.tree-head{
+  display:flex;align-items:center;gap:6px;width:100%;padding:7px 6px;
+  font-family:var(--sans);font-size:12.5px;font-weight:500;color:var(--ink-soft);
+  border-radius:3px;text-align:left;
+}
+.tree-head:hover{background:var(--paper-2);color:var(--ink)}
+.tree-head .caret{width:9px;height:9px;flex:none;color:var(--muted);transition:transform .22s}
+.tree-group[data-open="false"] .caret{transform:rotate(-90deg)}
+.tree-head .count{margin-left:auto;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tree-items{overflow:hidden;transition:height .25s ease}
+.tree-group[data-open="false"] .tree-items{height:0!important}
+.tree-link{
+  display:block;padding:6px 10px 6px 22px;font-family:var(--serif);
+  font-size:13px;line-height:1.5;color:var(--ink-soft);border-left:2px solid transparent;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.tree-link:hover{color:var(--ink);background:var(--paper-2)}
+.tree-link.active{color:var(--ink);font-weight:600;border-left-color:var(--red);background:color-mix(in srgb,var(--paper-2) 60%,transparent)}
+.tree-link .dot{display:none}
+
+/* ============ 内容列 ============ */
+.content{min-width:0;padding:0 var(--pad)}
+.home{padding:64px 0 40px;max-width:980px}
+
+/* 首页 hero */
+.hero{max-width:820px}
+.eyebrow{
+  font-family:var(--sans);font-size:11px;letter-spacing:.26em;color:var(--red);
+  text-transform:uppercase;display:flex;align-items:center;gap:10px;margin-bottom:22px;
+}
+.eyebrow::before{content:"";width:26px;height:1px;background:var(--red);opacity:.7}
+.hero h1{
+  font-family:var(--serif);font-weight:700;margin:0 0 18px;
+  font-size:clamp(38px,5.2vw,66px);line-height:1.12;letter-spacing:-.01em;
+}
+.hero h1 em{font-style:normal;color:var(--red)}
+.hero p{
+  font-size:16.5px;line-height:1.85;color:var(--ink-soft);margin:0 0 30px;max-width:640px;
+}
+.hero-meta{
+  display:flex;flex-wrap:wrap;gap:26px;padding:18px 0;border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);margin-bottom:52px;
+}
+.stat{display:flex;flex-direction:column;gap:3px}
+.stat b{font-family:var(--serif);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.stat span{font-family:var(--sans);font-size:10.5px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.stat-note{margin-left:auto;align-self:center;font-family:var(--sans);font-size:11.5px;color:var(--muted)}
+
+/* 最新大卡 */
+.feature{
+  display:grid;grid-template-columns:1.15fr .85fr;gap:0;margin-bottom:58px;
+  border:1px solid var(--line);background:var(--paper-2);border-radius:4px;
+  overflow:hidden;transition:border-color .25s,transform .25s,box-shadow .25s;
+}
+.feature:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:var(--shadow)}
+.feature-text{padding:34px 36px;display:flex;flex-direction:column;justify-content:center}
+.feature .kicker{font-family:var(--sans);font-size:11px;letter-spacing:.2em;color:var(--red);text-transform:uppercase;margin-bottom:14px}
+.feature h2{font-family:var(--serif);font-weight:700;font-size:clamp(24px,2.6vw,34px);line-height:1.25;margin:0 0 12px}
+.feature p{font-size:14.5px;line-height:1.8;color:var(--ink-soft);margin:0 0 20px}
+.feature-meta{font-family:var(--sans);font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+.feature-img{position:relative;min-height:220px;background:var(--paper-3)}
+.feature-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.95)}
+
+/* 分组列表 */
+.section{display:flex;align-items:center;gap:14px;margin:0 0 6px}
+.section h3{
+  font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.2em;
+  text-transform:uppercase;margin:0;color:var(--ink);
+}
+.section .rule{flex:1;height:1px;background:var(--line)}
+.section .num{font-family:var(--sans);font-size:11px;color:var(--muted)}
+.group{margin-bottom:46px}
+.cards{display:flex;flex-direction:column}
+.card{
+  display:grid;grid-template-columns:1fr 118px;gap:22px;align-items:center;
+  padding:22px 4px;border-bottom:1px solid var(--line);
+  transition:background .2s,padding .2s;
+}
+.card:hover{background:color-mix(in srgb,var(--paper-2) 55%,transparent)}
+.card:hover .card-title{color:var(--red)}
+.card-main{min-width:0}
+.card-date{font-family:var(--sans);font-size:10.5px;letter-spacing:.16em;color:var(--muted);margin-bottom:8px;display:flex;gap:10px;align-items:center}
+.card-date .tagline{color:var(--red);letter-spacing:.06em}
+.card-title{
+  font-family:var(--serif);font-size:21px;font-weight:600;line-height:1.35;
+  margin:0 0 7px;transition:color .2s;
+}
+.card-desc{font-size:13.5px;line-height:1.75;color:var(--muted);margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-thumb{width:118px;height:80px;border-radius:2px;overflow:hidden;background:var(--paper-3)}
+.card-thumb img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.95)}
+
+/* ============ 文章页 ============ */
+.doc{padding:52px 0 60px;max-width:720px;margin:0 auto}
+.doc-head{margin-bottom:34px}
+.doc-kicker{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  font-family:var(--sans);font-size:11px;letter-spacing:.14em;color:var(--muted);margin-bottom:18px;
+}
+.doc-kicker .cat{color:var(--red);letter-spacing:.2em;text-transform:uppercase;font-weight:500}
+.doc-kicker .sep{width:14px;height:1px;background:var(--line)}
+.doc h1.title{
+  font-family:var(--serif);font-weight:700;margin:0 0 14px;
+  font-size:clamp(30px,4.2vw,46px);line-height:1.22;letter-spacing:-.005em;
+}
+.doc .subtitle{
+  font-family:var(--serif);font-size:17px;line-height:1.7;color:var(--muted);
+  margin:0 0 22px;font-style:italic;
+}
+.doc-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.tag{
+  font-family:var(--sans);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);
+  border:1px solid var(--line);border-radius:2px;padding:3px 8px;background:var(--paper-2);
+}
+.doc-cover{
+  margin:34px calc(var(--pad) * -0.5) 40px; position:relative;
+}
+.doc-cover img{width:100%;display:block;border-radius:3px;box-shadow:var(--shadow)}
+.doc-cover figcaption{font-family:var(--sans);font-size:11.5px;color:var(--muted);margin-top:10px;text-align:center;letter-spacing:.04em}
+
+/* 正文排版 */
+.prose{font-size:17px;line-height:1.95;color:var(--ink)}
+html[data-theme="dark"] .prose{color:#ddd5c6}
+.prose > * + *{margin-top:1.15em}
+.prose p{margin:0}
+.prose p:first-child::first-letter{}
+.prose h2{
+  font-family:var(--serif);font-weight:700;font-size:25px;line-height:1.4;
+  margin:2.2em 0 .9em;letter-spacing:0;scroll-margin-top:88px;position:relative;
+}
+.prose h2::before{
+  content:"";position:absolute;left:-18px;top:.28em;width:3px;height:.86em;background:var(--red);opacity:.85;
+}
+.prose h3{
+  font-family:var(--serif);font-weight:600;font-size:19.5px;margin:1.7em 0 .7em;
+  scroll-margin-top:88px;
+}
+.prose h4{font-family:var(--sans);font-weight:700;font-size:15px;letter-spacing:.04em;margin:1.4em 0 .5em}
+.prose h2 .h-anchor,.prose h3 .h-anchor{opacity:0;color:var(--muted);font-size:.6em;margin-left:.4em;text-decoration:none;transition:opacity .2s}
+.prose h2:hover .h-anchor,.prose h3:hover .h-anchor{opacity:1}
+.prose ul,.prose ol{padding-left:1.35em;margin:0}
+.prose li{margin:.45em 0}
+.prose li::marker{color:var(--red);font-size:.9em}
+.prose strong{font-weight:700}
+.prose em{font-style:italic}
+.prose a{color:var(--ink);border-bottom:1px solid color-mix(in srgb,var(--red) 45%,transparent);padding-bottom:1px;transition:color .2s,border-color .2s}
+.prose a:hover{color:var(--red);border-color:var(--red)}
+.prose blockquote{
+  margin:1.6em 0;padding:4px 0 4px 22px;border-left:2px solid var(--red);
+  font-style:italic;color:var(--ink-soft);font-size:16.5px;line-height:1.9;
+}
+.prose blockquote p{margin:0}
+.prose blockquote em{font-style:normal}
+.prose hr{border:0;height:1px;background:var(--line);margin:2.6em 0}
+
+/* 代码 */
+.prose .code-block{
+  margin:1.7em 0;border-radius:3px;overflow:hidden;background:var(--code-bg);
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+}
+.code-head{
+  display:flex;align-items:center;gap:9px;padding:9px 14px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.code-head .dot{width:6px;height:6px;border-radius:50%;background:var(--red-soft);opacity:.9;flex:none}
+.code-head .lang{font-family:var(--sans);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8d8474}
+.copy-btn{
+  margin-left:auto;font-family:var(--sans);font-size:10.5px;letter-spacing:.1em;
+  color:#8d8474;padding:3px 7px;border-radius:2px;transition:color .2s,background .2s;
+}
+.copy-btn:hover{color:#e9e0d0;background:rgba(255,255,255,.06)}
+.prose pre{margin:0;padding:16px 18px;overflow-x:auto;line-height:1.7;-webkit-overflow-scrolling:touch}
+.prose pre code{
+  font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  font-size:13px;color:var(--code-fg);background:none;padding:0;white-space:pre;
+}
+.hljs-keyword,.hljs-built_in,.hljs-literal{color:#e0795f}
+.hljs-string,.hljs-attr{color:#c8a465}
+.hljs-comment{color:#6d6558;font-style:italic}
+.hljs-number{color:#a8b06a}
+.hljs-title,.hljs-function{color:#d8cbb2}
+.hljs-variable,.hljs-params{color:#cdbfa5}
+.hljs-type,.hljs-class{color:#c9a26a}
+
+/* 表格 */
+.prose .table-wrap{overflow-x:auto;margin:1.7em 0;-webkit-overflow-scrolling:touch}
+.prose table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.7;font-family:var(--sans)}
+.prose thead th{
+  text-align:left;font-weight:700;font-size:11.5px;letter-spacing:.08em;color:var(--muted);
+  border-bottom:1px solid var(--ink);padding:9px 12px 9px 0;white-space:nowrap;
+}
+.prose tbody td{border-bottom:1px solid var(--line);padding:11px 12px 11px 0;color:var(--ink-soft);vertical-align:top}
+.prose tbody tr:hover td{background:color-mix(in srgb,var(--paper-2) 70%,transparent)}
+.prose tbody tr:last-child td{border-bottom:1px solid var(--ink)}
+
+/* 图片 */
+.prose img.md-img{
+  display:block;margin:2em auto;border-radius:3px;box-shadow:var(--shadow);cursor:zoom-in;
+  transition:transform .3s ease, box-shadow .3s ease;
+}
+.prose img.md-img:hover{transform:translateY(-2px);box-shadow:0 12px 34px -12px rgba(25,23,20,.28)}
+.prose figure.diagram{
+  margin:2.2em 0;padding:2px;border:1px solid var(--line);border-radius:3px;
+  background:var(--paper-2);overflow:hidden;
+}
+.prose figure.diagram svg{display:block;width:100%;height:auto;padding:10px 8px;color:var(--ink)}
+.prose figure.diagram figcaption{
+  font-family:var(--sans);font-size:11.5px;color:var(--muted);text-align:center;
+  padding:2px 12px 12px;letter-spacing:.04em;
+}
+.prose figure.img-fig{margin:2em 0}
+.prose figure.img-fig figcaption{
+  font-family:var(--sans);font-size:11.5px;color:var(--muted);text-align:center;
+  margin-top:10px;letter-spacing:.04em;
+}
+.prose .img-fail{
+  display:block;border:1px dashed var(--line);background:var(--paper-2);
+  border-radius:3px;padding:28px 20px;text-align:center;margin:2em 0;
+  font-family:var(--sans);font-size:12px;color:var(--muted);
+}
+
+/* 文末 */
+.doc-foot{margin-top:64px;padding-top:30px;border-top:1px solid var(--line)}
+.pager{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pager a{
+  display:block;padding:18px 20px;border:1px solid var(--line);border-radius:3px;
+  background:var(--paper-2);transition:border-color .2s,transform .2s;
+}
+.pager a:hover{border-color:var(--red);transform:translateY(-2px)}
+.pager .lbl{font-family:var(--sans);font-size:10.5px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:7px}
+.pager .ttl{font-family:var(--serif);font-size:15px;line-height:1.5;font-weight:600}
+.pager .next{text-align:right}
+.pager .empty{opacity:.35;pointer-events:none}
+
+/* ============ 右侧目录 ============ */
+.toc{
+  position:sticky;top:62px;height:calc(100vh - 62px);overflow-y:auto;
+  padding:40px 0 40px 28px;border-left:1px solid var(--line);scrollbar-width:thin;
+}
+.toc-title{font-family:var(--sans);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+.toc-list{list-style:none;margin:0;padding:0;border-left:1px solid var(--line)}
+.toc-list li a{
+  display:block;padding:5px 0 5px 14px;margin-left:-1px;border-left:2px solid transparent;
+  font-family:var(--sans);font-size:12px;line-height:1.6;color:var(--muted);
+  transition:color .18s,border-color .18s;
+}
+.toc-list li a:hover{color:var(--ink)}
+.toc-list li a.active{color:var(--ink);border-left-color:var(--red);font-weight:500}
+.toc-list li.depth-3 a{padding-left:26px;font-size:11.5px}
+.toc-meta{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);font-family:var(--sans);font-size:10.5px;color:var(--muted);line-height:1.9}
+.toc-meta b{color:var(--ink-soft);font-weight:500}
+
+/* ============ 页脚 ============ */
+.foot{
+  position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:30px 22px 46px;
+  border-top:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+  font-family:var(--sans);font-size:11px;color:var(--muted);letter-spacing:.04em;
+}
+.foot .spacer{flex:1}
+.foot .mode{display:inline-flex;align-items:center;gap:6px}
+.foot .mode i{width:5px;height:5px;border-radius:50%;background:var(--red);opacity:.8}
+
+/* ============ 本地文件夹状态条 ============ */
+.localbar{
+  position:relative; z-index:59;
+  background:var(--paper-2); border-bottom:1px solid var(--line);
+  font-family:var(--sans); font-size:12px; color:var(--ink-soft);
+  padding:9px 22px; display:flex; align-items:center; gap:10px;
+  flex-wrap:wrap; letter-spacing:.02em;
+}
+.localbar i{width:6px;height:6px;border-radius:50%;background:var(--red);flex:none;opacity:.9}
+.localbar .act{
+  color:var(--red); border-bottom:1px solid color-mix(in srgb,var(--red) 40%,transparent);
+  padding-bottom:1px; font-weight:500; cursor:pointer;
+}
+.localbar .act:hover{border-color:var(--red)}
+.localbar[hidden]{display:none}
+.folder-btn.on{color:var(--red)}
+.folder-btn.on::after{
+  content:""; position:absolute; width:5px; height:5px; border-radius:50%;
+  background:var(--red); transform:translate(9px,-9px);
+}
+.folder-btn{position:relative}
+
+/* ============ 首次授权引导 ============ */
+.gate{
+  position:fixed;inset:0;z-index:80;background:var(--paper);
+  display:grid;place-items:center;padding:28px;text-align:center;
+  transition:opacity .35s ease, visibility .35s;
+}
+.gate.off{opacity:0;visibility:hidden;pointer-events:none}
+.gate-inner{max-width:560px}
+.gate-mark{
+  width:48px;height:48px;margin:0 auto 26px;border-radius:3px;background:var(--red);
+  color:#fff;font-family:var(--serif);font-weight:700;font-size:21px;
+  display:grid;place-items:center;letter-spacing:-1px;
+}
+.gate h2{
+  font-family:var(--serif);font-weight:700;font-size:clamp(26px,4vw,38px);
+  line-height:1.3;margin:0 0 16px;letter-spacing:-.01em;
+}
+.gate p{
+  font-size:14.5px;line-height:1.95;color:var(--ink-soft);margin:0 auto 30px;max-width:460px;
+}
+.gate-btn{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--ink);color:var(--paper);font-family:var(--sans);
+  font-size:13.5px;letter-spacing:.06em;padding:13px 26px;border-radius:3px;
+  transition:background .2s,transform .2s;
+}
+.gate-btn:hover{background:var(--red);transform:translateY(-1px)}
+.gate-btn svg{width:16px;height:16px}
+.gate-hint{
+  display:block;margin-top:18px;font-family:var(--sans);font-size:11.5px;
+  color:var(--muted);letter-spacing:.03em;line-height:1.8;
+}
+.gate-step{
+  display:flex;gap:10px;justify-content:center;margin-top:34px;
+  font-family:var(--sans);font-size:11px;color:var(--muted);letter-spacing:.08em;
+}
+.gate-step span{display:flex;align-items:center;gap:10px}
+.gate-step b{color:var(--red);font-weight:500}
+.gate-step .ln{width:18px;height:1px;background:var(--line)}
+
+/* ============ 抽屉 & 遮罩 ============ */
+.scrim{
+  position:fixed;inset:0;z-index:70;background:rgba(15,13,11,.42);
+  backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .28s;
+}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;left:0;bottom:0;width:min(84vw,320px);z-index:71;
+  background:var(--paper);border-right:1px solid var(--line);
+  transform:translateX(-101%);transition:transform .3s cubic-bezier(.22,.7,.32,1);
+  display:flex;flex-direction:column;padding:18px 18px 30px;
+  box-shadow:12px 0 40px -18px rgba(0,0,0,.35);
+}
+.drawer.on{transform:translateX(0)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.drawer .rail-scroll{padding-right:4px}
+
+/* lightbox */
+.lightbox{
+  position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:3vw;
+  background:rgba(12,10,8,.88);opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.lightbox.on{opacity:1;pointer-events:auto}
+.lightbox img{max-width:100%;max-height:92vh;border-radius:3px;box-shadow:0 20px 70px rgba(0,0,0,.6)}
+.lightbox-close{position:absolute;top:18px;right:20px;width:38px;height:38px;display:grid;place-items:center;color:#f0e8d8;border:1px solid rgba(255,255,255,.2);border-radius:3px}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:32px;transform:translate(-50%,12px);z-index:95;
+  background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:12px;
+  padding:9px 16px;border-radius:3px;opacity:0;pointer-events:none;transition:.25s;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* 加载骨架 */
+.loading{padding:80px 0;color:var(--muted);font-family:var(--sans);font-size:12px;letter-spacing:.16em}
+
+/* ============ 响应式 ============ */
+@media (max-width:1260px){
+  .layout{grid-template-columns:var(--rail) minmax(0,1fr)}
+  .toc{display:none}
+  .content{padding:0 42px}
+}
+@media (max-width:1080px){
+  .layout{display:block;padding:0}
+  .rail{display:none}
+  .content{padding:0 32px}
+  .home{padding:40px 0 30px}
+  .menu-btn{display:grid}
+  .crumb{display:none}
+  .brand-name{padding-right:0}
+  .doc{padding-top:34px}
+  .doc-cover{margin-left:0;margin-right:0}
+  .prose h2::before{left:-14px}
+}
+@media (max-width:720px){
+  :root{--pad:20px}
+  .topbar-inner{height:56px;padding:0 14px}
+  .rail{top:0}
+  .content{padding:0 20px}
+  .hero{padding-top:8px}
+  .hero h1{font-size:clamp(32px,9vw,44px)}
+  .hero p{font-size:15.5px}
+  .hero-meta{gap:20px;padding:16px 0;margin-bottom:38px}
+  .stat b{font-size:20px}
+  .stat-note{display:none}
+  .feature{grid-template-columns:1fr;margin-bottom:44px}
+  .feature-text{padding:26px 22px}
+  .feature-img{min-height:0;aspect-ratio:16/10;order:-1}
+  .feature:hover{transform:none}
+  .card{grid-template-columns:1fr 84px;gap:14px;padding:18px 0}
+  .card-thumb{width:84px;height:64px}
+  .card-title{font-size:18px}
+  .card-desc{-webkit-line-clamp:2;font-size:12.5px}
+  .prose{font-size:16px;line-height:1.9}
+  .prose h2{font-size:21px;margin-top:1.9em}
+  .prose h3{font-size:17.5px}
+  .prose pre code{font-size:12.5px}
+  .prose .table-wrap{margin-left:-20px;margin-right:-20px;padding:0 20px}
+  .prose blockquote{padding-left:16px;font-size:15.5px}
+  .prose img.md-img, .prose figure.img-fig{border-radius:2px}
+  .doc h1.title{font-size:clamp(26px,7.4vw,34px)}
+  .doc .subtitle{font-size:15px}
+  .doc-cover{margin:26px 0 32px}
+  .pager{grid-template-columns:1fr}
+  .pager .next{text-align:left}
+  .prose h2::before{display:none}
+  .toc-mobile{display:block}
+}
+@media (max-width:400px){
+  .content{padding:0 16px}
+  .brand-sub{display:none}
+  .stat{gap:2px}
+}
+
+/* 移动端文章内的折叠目录 */
+.toc-mobile{
+  display:none;margin:0 0 28px;border:1px solid var(--line);border-radius:3px;background:var(--paper-2);
+}
+.toc-mobile summary{
+  padding:11px 14px;font-family:var(--sans);font-size:11.5px;letter-spacing:.14em;
+  color:var(--muted);text-transform:uppercase;cursor:pointer;list-style:none;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.toc-mobile summary::-webkit-details-marker{display:none}
+.toc-mobile summary::after{content:"+";font-size:14px;color:var(--red)}
+.toc-mobile[open] summary::after{content:"−"}
+.toc-mobile .toc-list{border-left:0;padding:0 0 10px}
+.toc-mobile .toc-list li a{padding-left:14px}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+<div class="scrim" id="scrim"></div>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="brand"><span class="brand-mark">墨</span><span class="brand-name">墨读</span></div>
+    <button class="icon-btn" id="drawerClose" aria-label="关闭目录">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="rail-scroll" id="drawerTree"></div>
+</div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-label="打开目录">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <a class="brand" href="#/" id="brandHome">
+      <span class="brand-mark">墨</span>
+      <span class="brand-name">墨读</span>
+      <span class="brand-sub">MDReader</span>
+    </a>
+    <div class="crumb" id="crumb"></div>
+    <div class="top-actions">
+      <button class="icon-btn" id="refreshBtn" aria-label="刷新内容" title="重新读取仓库">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 11a8 8 0 0 0-13.9-5.2M4 13a8 8 0 0 0 13.9 5.2"/><path d="M20 4.5v5h-5M4 19.5v-5h5"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" aria-label="切换主题">
+        <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 14.2a8.5 8.5 0 1 1-10.7-10.7 8.5 8.5 0 0 0 10.7 10.7z"/></svg>
+        <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2M12 19.6v2M2.4 12h2M19.6 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="localbar" id="localBar" hidden></div>
+
+<div class="layout">
+  <aside class="rail">
+    <div class="rail-scroll">
+      <p class="rail-title">目录 / Contents</p>
+      <div class="rail-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+        <input id="railSearch" type="search" placeholder="搜索标题…" autocomplete="off">
+      </div>
+      <div id="railTree"></div>
+    </div>
+  </aside>
+
+  <main class="content" id="content">
+    <div class="loading">正在读取…</div>
+  </main>
+
+  <aside class="toc" id="toc">
+    <p class="toc-title">本篇目录</p>
+    <ul class="toc-list" id="tocList"></ul>
+    <div class="toc-meta" id="tocMeta"></div>
+  </aside>
+</div>
+
+<footer class="foot">
+  <span id="footText">墨读 · 一个只读 md 的阅读器</span>
+  <span class="spacer"></span>
+  <span class="mode"><i></i><span id="modeLabel">内容源：内置快照</span></span>
+</footer>
+
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lbClose" aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="18" height="18"><path d="M18 6L6 18M6 6l12 12"/></svg>
+  </button>
+  <img id="lbImg" alt="">
+</div>
+<div class="toast" id="toast"></div>
+
+<input type="file" id="dirInput" webkitdirectory directory multiple style="display:none">
+
+
+
+<script id="content-data" type="application/json">{"docs":[],"assets":{}}</script>
+<script src="site-config.js"></script>
+<script src="assets/marked.min.js"></script>
+<script src="assets/purify.min.js"></script>
+<script src="assets/highlight.min.js"></script>
+<script>
+/* =========================================================
+   墨读 · 单文件 markdown 阅读器
+   - 内容源优先 content/index.json（http 模式，实时）
+   - 回退到内置快照（file:// 模式）
+   - md 永不落盘为 html，渲染只在内存中进行
+   ========================================================= */
+(function(){
+'use strict';
+
+const MD = window.MD_SITE || {};
+const SITE = {
+  site: Object.assign({
+    mark:'墨', name:'墨读', sub:'MDReader', title:'墨读 · MDReader',
+    footer:'墨读 · 一个只读 md 的阅读器', themeColor:{ light:'#faf7f0', dark:'#12110e' }
+  }, MD.site || {}),
+  hero: Object.assign({
+    eyebrow:'Field Notes & Essays',
+    title:'把字写在纸上，<br>把读发生在<em>当下</em>。',
+    desc:'这里没有预先生成的页面。每一篇都还是一个 <code>.md</code> 文件，只有你打开它的这一刻，它才被翻译成你能读的样子。'
+  }, MD.hero || {}),
+  github: Object.assign({ owner:'', repo:'', branch:'main', root:'content' }, MD.github || {}),
+  ui: Object.assign({ latestLabel:'Latest', loadingText:'正在读取仓库…' }, MD.ui || {})
+};
+
+const $  = s => document.querySelector(s);
+const EL = id => document.getElementById(id);
+
+const state = {
+  docs: [], route: {type:'home'}, current: null,
+  loading: false, hSeq: 0, mode: 'inline', search: '',
+  files: Object.create(null), assets: Object.create(null),
+  handle: null, pendingHandle: null, dirName: ''
+};
+
+/* ---------- 内容源：GitHub 仓库 ---------- */
+/* 页面部署在 GitHub Pages 上时，owner/repo 直接从地址推断，无需配置。
+   本地双击打开（file://）才需要在 site-config.js 里填。 */
+const GH = SITE.github;
+
+function detectRepoFromLocation(){
+  const host = location.hostname;
+  const segs = location.pathname.split('/').filter(Boolean);
+  if(/\.github\.io$/.test(host)){
+    const owner = host.replace(/\.github\.io$/, '');
+    const first = segs[0] || '';
+    const repo = (!first || /\.html?$/i.test(first)) ? (owner + '.github.io') : first;
+    return { owner: owner, repo: repo };
+  }
+  return null;
+}
+
+function resolveSource(){
+  if(GH.owner && GH.repo) return { owner: GH.owner, repo: GH.repo, auto: false };
+  const auto = detectRepoFromLocation();
+  if(auto){
+    GH.owner = auto.owner;
+    GH.repo = auto.repo;
+    return { owner: auto.owner, repo: auto.repo, auto: true };
+  }
+  return null;
+}
+
+function encodePath(p){ return String(p).split('/').map(encodeURIComponent).join('/'); }
+function rawUrl(p){ return 'https://raw.githubusercontent.com/' + GH.owner + '/' + GH.repo + '/' + GH.branch + '/' + encodePath(p); }
+
+/* ---------- 工具 ---------- */
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+const encSeg = s => s.split('/').map(encodeURIComponent).join('/');
+
+function slug(s){
+  return String(s).toLowerCase().replace(/[\s]+/g,'-').replace(/[^\w\u4e00-\u9fa5-]/g,'').slice(0,40);
+}
+
+function parseFrontMatter(text){
+  const meta = {};
+  const m = text.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if(!m) return { meta, body: text.replace(/^\uFEFF/,'') };
+  m[1].split(/\r?\n/).forEach(line => {
+    const i = line.indexOf(':'); if(i < 0 || line.trim().startsWith('#')) return;
+    const k = line.slice(0, i).trim();
+    let v = line.slice(i + 1).trim();
+    if(/^\[.*\]$/.test(v)) v = v.slice(1,-1).split(',').map(s => s.trim()).filter(Boolean);
+    if(/^["'].*["']$/.test(v)) v = v.slice(1,-1);
+    meta[k] = v;
+  });
+  return { meta, body: text.slice(m[0].length) };
+}
+
+function countWords(text){
+  const clean = text.replace(/```[\s\S]*?```/g,' ').replace(/<[^>]+>/g,' ');
+  const cjk = (clean.match(/[\u4e00-\u9fa5]/g) || []).length;
+  const latin = (clean.match(/[A-Za-z0-9]+/g) || []).length;
+  return cjk + latin * 0.6;
+}
+
+function readTime(words){
+  const n = Math.max(1, Math.round(words / 380));
+  return n + ' 分钟';
+}
+
+function bytesOf(text){
+  return new Blob([text]).size;
+}
+
+/* ---------- 文档模型 ---------- */
+function normalizeDoc(d, idx){
+  const path = d.path.replace(/\\/g,'/');
+  const parts = path.split('/');
+  const folder = parts.slice(0, -1);
+  const cat = folder[0] || '未分类';
+  return {
+    id: idx,
+    path,
+    dir: folder.join('/'),
+    cat,
+    title: d.title || parts[parts.length-2] || '未命名',
+    subtitle: d.subtitle || '',
+    date: d.date || '',
+    tags: Array.isArray(d.tags) ? d.tags : (d.tags ? String(d.tags).split(',') : []),
+    summary: d.summary || '',
+    cover: d.cover || '',
+    words: d.words || 0,
+    raw: d.raw || ''
+  };
+}
+
+/* ---------- marked 配置 ---------- */
+const renderer = {
+  heading(token){
+    const inner = this.parser.parseInline(token.tokens);
+    if(token.depth === 1){
+      return `<div class="h1-echo">${inner}</div>\n`;
+    }
+    if(token.depth === 2 || token.depth === 3){
+      const id = 'sec-' + (++state.hSeq);
+      return `<h${token.depth} id="${id}"><a class="h-anchor" href="javascript:void(0)" data-jump="${id}">§</a>${inner}</h${token.depth}>\n`;
+    }
+    return `<h${token.depth}>${inner}</h${token.depth}>\n`;
+  },
+  image(token){
+    const href = token.href || '';
+    if(!href) return '';
+    const src = resolveImgSrc(href);
+    const caption = token.title ? ` data-caption="${esc(token.title)}"` : '';
+    return `<span class="img-slot"><img class="md-img" src="${esc(src)}" alt="${esc(token.text)}"${caption} loading="lazy" decoding="async"></span>`;
+  },
+  link(token){
+    const inner = this.parser.parseInline(token.tokens);
+    const href = token.href || '';
+    const ext = /^https?:/i.test(href);
+    const t = token.title ? ` title="${esc(token.title)}"` : '';
+    return `<a href="${esc(href)}"${t}${ext ? ' target="_blank" rel="noopener noreferrer"' : ''}>${inner}</a>`;
+  },
+  code(token){
+    const lang = (token.lang || '').trim().split(/\s+/)[0];
+    let body = token.text;
+    let cls = 'hljs';
+    if(lang && window.hljs && hljs.getLanguage(lang)){
+      try{ body = hljs.highlight(token.text, {language:lang}).value; cls = 'hljs language-' + lang; }
+      catch(e){ body = esc(token.text); }
+    } else {
+      body = esc(token.text);
+    }
+    return `<div class="code-block"><div class="code-head"><span class="dot"></span><span class="lang">${esc(lang || 'text')}</span><button class="copy-btn" data-copy>复制</button></div><pre><code class="${cls}">${body}</code></pre></div>\n`;
+  },
+  table(token){
+    const head = token.header.map(c =>
+      `<th align="${c.align || 'left'}">${this.parser.parseInline(c.tokens)}</th>`).join('');
+    const rows = token.rows.map((row, ri) =>
+      `<tr>${row.map(c => `<td align="${c.align || 'left'}">${this.parser.parseInline(c.tokens)}</td>`).join('')}</tr>`
+    ).join('');
+    return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>\n`;
+  }
+};
+marked.use({ gfm: true, breaks: false, renderer });
+
+/* ---------- 渲染 md ---------- */
+/* ---------- 路径与素材 ---------- */
+function normPath(p){
+  const out = [];
+  String(p).replace(/\\/g,'/').split('/').forEach(seg => {
+    if(!seg || seg === '.') return;
+    if(seg === '..'){ out.pop(); return; }
+    out.push(seg);
+  });
+  return out.join('/');
+}
+
+function assetSrc(relPath){
+  const key = normPath(relPath);
+  if(/^(data:|blob:|https?:)/i.test(key)) return key;
+  const a = state.assets && state.assets[key];
+  if(a) return a;
+  const f = state.files[key];
+  if(f && f.url) return f.url;
+  if(GH.owner && GH.repo) return rawUrl(GH.root + '/' + key);
+  return 'content/' + encSeg(key);
+}
+
+function resolveImgSrc(href){
+  if(/^(data:|https?:|\/\/|\/)/i.test(href)) return href;
+  let decoded = href;
+  try{ decoded = decodeURI(href); }catch(e){}
+  const dir = state.current ? state.current.dir : '';
+  const key = normPath((dir ? dir + '/' : '') + decoded);
+  return assetSrc(key) || ('content/' + encSeg(key));
+}
+
+function renderMarkdown(raw){
+  state.hSeq = 0;
+  const { meta, body } = parseFrontMatter(raw);
+  let html = marked.parse(body);
+  html = window.DOMPurify
+    ? DOMPurify.sanitize(html, {
+        ADD_TAGS: ['figure','figcaption','svg','g','path','rect','circle','text','polygon','use','defs','line','tspan','ellipse'],
+        ADD_ATTR: ['viewBox','role','aria-label','data-caption','data-jump','d','fill','stroke','stroke-width','stroke-dasharray','text-anchor','font-family','font-size','rx','x','y','width','height','transform','cx','cy','r','opacity','class','id','align'],
+        ALLOW_DATA_ATTR: true
+      })
+    : html;
+  return { meta, body, html };
+}
+
+/* ---------- 后处理：figure / 代码复制 / 图片 ---------- */
+function postProcess(container){
+  // 段落内孤立图片 → figure
+  container.querySelectorAll('p').forEach(p => {
+    const slots = p.querySelectorAll('.img-slot');
+    const text = (p.textContent || '').trim();
+    if(slots.length === 1 && text === '' && p.children.length === 1){
+      const slot = slots[0];
+      const img = slot.querySelector('img');
+      const fig = document.createElement('figure');
+      fig.className = 'img-fig';
+      p.replaceWith(fig);
+      fig.appendChild(img);
+      if(img.dataset.caption){
+        const cap = document.createElement('figcaption');
+        cap.textContent = img.dataset.caption;
+        fig.appendChild(cap);
+      }
+      slot.remove();
+    } else {
+      // 行内图：去掉包裹，保留 inline
+      p.querySelectorAll('.img-slot').forEach(s => {
+        const img = s.querySelector('img');
+        img.classList.remove('md-img');
+        img.style.margin = '0 .25em';
+        s.replaceWith(img);
+      });
+    }
+  });
+
+  // 剩余 slot（如列表、引用内）
+  container.querySelectorAll('.img-slot').forEach(s => {
+    s.replaceWith(s.querySelector('img'));
+  });
+
+  // 图片加载失败
+  container.querySelectorAll('img.md-img').forEach(img => {
+    img.addEventListener('error', () => {
+      const fail = document.createElement('div');
+      fail.className = 'img-fail';
+      fail.textContent = '图片未能加载 · ' + (img.getAttribute('src') || '');
+      img.replaceWith(fail);
+    }, { once:true });
+    img.addEventListener('click', () => openLightbox(img.src));
+  });
+  container.querySelectorAll('figure.img-fig img').forEach(img => {
+    img.addEventListener('click', () => openLightbox(img.src));
+  });
+
+  // 代码复制
+  container.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pre = btn.closest('.code-block');
+      const code = pre ? pre.querySelector('code') : null;
+      if(!code) return;
+      const txt = code.textContent;
+      const done = () => toast('已复制');
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done).catch(() => fallbackCopy(txt, done));
+      } else fallbackCopy(txt, done);
+    });
+  });
+
+  // 锚点跳转
+  container.querySelectorAll('[data-jump]').forEach(a => {
+    a.addEventListener('click', () => jumpTo(a.dataset.jump));
+  });
+
+  // 表格横向滚动提示（仅提示，不阻断）
+  container.querySelectorAll('.table-wrap').forEach(w => {
+    if(w.scrollWidth > w.clientWidth + 4) w.classList.add('scrollable');
+  });
+}
+
+function fallbackCopy(txt, done){
+  const ta = document.createElement('textarea');
+  ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); done(); }catch(e){}
+  ta.remove();
+}
+
+/* ---------- 页面级 UI ---------- */
+function setCrumb(html){ EL('crumb').innerHTML = html; }
+
+function showToast(msg){
+  const t = EL('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('on'), 1500);
+}
+
+/* ---------- 目录树 ---------- */
+function buildTree(){
+  const cats = {};
+  state.docs.forEach(d => {
+    if(!cats[d.cat]) cats[d.cat] = [];
+    cats[d.cat].push(d);
+  });
+  const order = Object.keys(cats).sort((a,b) => {
+    const A = cats[a][0].date, B = cats[b][0].date;
+    return String(B).localeCompare(String(A));
+  });
+
+  const html = order.map(cat => {
+    const list = cats[cat].slice().sort((a,b) => String(b.date).localeCompare(String(a.date)));
+    const items = list.map(d => {
+      return `<a class="tree-link" href="#/a/${encodeURIComponent(d.path)}" data-path="${esc(d.path)}">${esc(d.title)}</a>`;
+    }).join('');
+    return `<div class="tree-group" data-open="true" data-cat="${esc(cat)}">
+      <button class="tree-head" data-toggle>
+        <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        <span>${esc(cat)}</span><span class="count">${list.length}</span>
+      </button>
+      <div class="tree-items">${items}</div>
+    </div>`;
+  }).join('');
+
+  ['railTree','drawerTree'].forEach(id => {
+    const box = EL(id);
+    if(!box) return;
+    box.innerHTML = `<div class="rail-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+      <input type="search" placeholder="搜索标题…" autocomplete="off" data-search>
+    </div>` + html;
+  });
+
+  document.querySelectorAll('[data-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const g = btn.closest('.tree-group');
+      const open = g.dataset.open === 'true';
+      g.dataset.open = open ? 'false' : 'true';
+      const items = g.querySelector('.tree-items');
+      if(open){ items.style.height = items.scrollHeight + 'px'; requestAnimationFrame(() => items.style.height = '0px'); }
+      else { items.style.height = items.scrollHeight + 'px'; setTimeout(() => { if(g.dataset.open === 'true') items.style.height = 'auto'; }, 260); }
+    });
+  });
+
+  document.querySelectorAll('[data-search]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const q = inp.value.trim().toLowerCase();
+      document.querySelectorAll('[data-search]').forEach(o => { if(o !== inp) o.value = inp.value; });
+      document.querySelectorAll('.tree-group').forEach(g => {
+        let shown = 0;
+        g.querySelectorAll('.tree-link').forEach(a => {
+          const hit = !q || a.textContent.toLowerCase().includes(q);
+          a.style.display = hit ? '' : 'none';
+          if(hit) shown++;
+        });
+        g.style.display = shown ? '' : 'none';
+        if(q && shown) g.dataset.open = 'true';
+      });
+    });
+  });
+
+  // 抽屉内目录点击后关闭
+  EL('drawerTree').addEventListener('click', e => {
+    if(e.target.closest('.tree-link')) closeDrawer();
+  });
+
+  markActive();
+}
+
+function markActive(){
+  const cur = state.route.type === 'doc' ? state.route.path : null;
+  document.querySelectorAll('.tree-link').forEach(a => {
+    a.classList.toggle('active', a.dataset.path === cur);
+  });
+}
+
+/* ---------- 首页 ---------- */
+function renderHome(){
+  setCrumb('<b>主页</b>');
+  document.title = SITE.site.title;
+  document.querySelectorAll('.tree-link').forEach(a => a.classList.remove('active'));
+  EL('toc').style.visibility = 'hidden';
+  updateProgress();
+
+  const docs = state.docs.slice().sort((a,b) => String(b.date).localeCompare(String(a.date)));
+  if(!docs.length){
+    EL('content').innerHTML = '<div class="loading">content 目录里还没有文章。新建 <code>content/栏目/文章/index.md</code> 后刷新。</div>';
+    return;
+  }
+  const totalWords = docs.reduce((s,d) => s + (d.words || 0), 0);
+  const cats = [...new Set(docs.map(d => d.cat))];
+  const latest = docs[0];
+
+  const catBlocks = cats.map(cat => {
+    const list = docs.filter(d => d.cat === cat);
+    const cards = list.map(d => `
+      <a class="card" href="#/a/${encodeURIComponent(d.path)}">
+        <div class="card-main">
+          <div class="card-date"><span>${esc(d.date)}</span><span class="tagline">${esc(cat)}</span><span>${d.words ? Math.round(d.words) + ' 字' : ''}</span></div>
+          <h4 class="card-title">${esc(d.title)}</h4>
+          <p class="card-desc">${esc(d.summary || d.subtitle || '')}</p>
+        </div>
+        ${d.cover ? `<div class="card-thumb"><img src="${esc(coverUrl(d))}" alt="" loading="lazy"></div>` : ''}
+      </a>`).join('');
+    return `<section class="group">
+      <div class="section"><h3>${esc(cat)}</h3><span class="rule"></span><span class="num">${list.length}</span></div>
+      <div class="cards">${cards}</div>
+    </section>`;
+  }).join('');
+
+  const feature = latest ? `
+    <a class="feature" href="#/a/${encodeURIComponent(latest.path)}">
+      <div class="feature-text">
+        <span class="kicker">${esc(SITE.ui.latestLabel)} · ${esc(latest.cat)}</span>
+        <h2>${esc(latest.title)}</h2>
+        <p>${esc(latest.summary || latest.subtitle || '')}</p>
+        <span class="feature-meta">${esc(latest.date)} · ${readTime(latest.words)}</span>
+      </div>
+      ${latest.cover ? `<div class="feature-img"><img src="${esc(coverUrl(latest))}" alt=""></div>` : ''}
+    </a>` : '';
+
+  EL('content').innerHTML = `
+    <div class="home">
+      <div class="hero">
+        <div class="eyebrow">${SITE.hero.eyebrow}</div>
+        <h1>${SITE.hero.title}</h1>
+        <p>${SITE.hero.desc}</p>
+        <div class="hero-meta">
+          <div class="stat"><b>${docs.length}</b><span>篇文章</span></div>
+          <div class="stat"><b>${cats.length}</b><span>个栏目</span></div>
+          <div class="stat"><b>${Math.round(totalWords / 1000 * 10) / 10}k</b><span>总字数</span></div>
+          <div class="stat-note">内容源：${state.mode === 'folder' ? 'content/ 文件夹' : '未连接'}</div>
+        </div>
+      </div>
+      ${feature}
+      ${catBlocks}
+    </div>`;
+  window.scrollTo(0, 0);
+}
+
+function coverUrl(d){
+  if(!d.cover) return '';
+  return assetSrc((d.dir ? d.dir + '/' : '') + d.cover);
+}
+
+/* ---------- 文章页 ---------- */
+async function renderDoc(path, push){
+  const doc = state.docs.find(d => d.path === path);
+  if(!doc){
+    EL('content').innerHTML = `<div class="loading">找不到这篇文章：${esc(path)}<br><a href="#/" style="color:var(--red)">返回主页</a></div>`;
+    return;
+  }
+  state.current = doc;
+  state.route = { type:'doc', path };
+  markActive();
+  EL('content').innerHTML = '<div class="loading">正在展开原文…</div>';
+  EL('toc').style.visibility = 'hidden';
+  updateProgress();
+
+  let raw = doc.raw;
+  if(!raw && state.mode === 'live'){
+    try{
+      const res = await fetch('content/' + encSeg(doc.path), { cache:'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      raw = await res.text();
+    }catch(e){
+      EL('content').innerHTML = `<div class="loading">读取失败：${esc(doc.path)}<br>${esc(e.message)}</div>`;
+      return;
+    }
+  }
+  if(!raw){ EL('content').innerHTML = `<div class="loading">读不到这篇的正文：${esc(doc.path)}</div>`; return; }
+
+  const { meta, html: bodyHtml } = renderMarkdown(raw);
+  const words = countWords(raw);
+  const cat = doc.cat;
+  const tags = doc.tags;
+
+  setCrumb(`<span>${esc(cat)}</span><span style="opacity:.5">/</span><b>${esc(doc.title)}</b>`);
+  document.title = doc.title + ' · ' + SITE.site.name;
+
+  const idx = state.docs.findIndex(d => d.path === path);
+  const ordered = state.docs.slice().sort((a,b) => String(b.date).localeCompare(String(a.date)));
+  const oi = ordered.findIndex(d => d.path === path);
+  const prev = ordered[oi + 1];
+  const next = ordered[oi - 1];
+
+  EL('content').innerHTML = `
+    <article class="doc">
+      <header class="doc-head">
+        <div class="doc-kicker">
+          <span class="cat">${esc(cat)}</span>
+          <span class="sep"></span>
+          <span>${esc(doc.date)}</span>
+          <span class="sep"></span>
+          <span>${readTime(words)}</span>
+          <span class="sep"></span>
+          <span>${Math.round(words)} 字</span>
+        </div>
+        <h1 class="title">${esc(doc.title)}</h1>
+        ${doc.subtitle ? `<p class="subtitle">${esc(doc.subtitle)}</p>` : ''}
+        ${tags.length ? `<div class="doc-tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      </header>
+
+      ${doc.cover ? `<figure class="doc-cover"><img src="${esc(coverUrl(doc))}" alt="${esc(doc.title)}" data-lightbox><figcaption>题图 · ${esc(doc.title)}</figcaption></figure>` : ''}
+
+      <details class="toc-mobile"><summary>本篇目录</summary><ul class="toc-list" id="tocListMobile"></ul></details>
+
+      <div class="prose" id="prose">${bodyHtml}</div>
+
+      <footer class="doc-foot">
+        <div class="pager">
+          ${prev ? `<a href="#/a/${encodeURIComponent(prev.path)}"><span class="lbl">← 上一篇</span><span class="ttl">${esc(prev.title)}</span></a>` : `<a class="empty"><span class="lbl">← 上一篇</span><span class="ttl">没有了</span></a>`}
+          ${next ? `<a class="next" href="#/a/${encodeURIComponent(next.path)}"><span class="lbl">下一篇 →</span><span class="ttl">${esc(next.title)}</span></a>` : `<a class="next empty"><span class="lbl">下一篇 →</span><span class="ttl">已经是最后一篇</span></a>`}
+        </div>
+      </footer>
+    </article>`;
+
+  postProcess(EL('prose'));
+  buildToc(EL('prose'));
+
+  EL('toc').style.visibility = '';
+  EL('tocMeta').innerHTML = `<b>${esc(cat)}</b><br>${esc(doc.date)} · ${readTime(words)}<br>${Math.round(words)} 字 · md 原文`;
+
+  document.querySelectorAll('.doc-cover img').forEach(img => {
+    img.style.cursor = 'zoom-in';
+    img.addEventListener('click', () => openLightbox(img.src));
+  });
+
+  window.scrollTo(0, 0);
+  updateProgress();
+  if(push !== false && !location.hash.includes(encodeURIComponent(path))) {
+    history.pushState(null, '', '#/a/' + encodeURIComponent(path));
+  }
+}
+
+/* ---------- 文章内目录 ---------- */
+function buildToc(prose){
+  const list = EL('tocList'), listM = EL('tocListMobile');
+  const heads = [...prose.querySelectorAll('h2, h3')];
+  if(!heads.length){
+    list.innerHTML = '<li><a style="opacity:.5">无小节</a></li>';
+    if(listM) listM.innerHTML = '';
+    return;
+  }
+  const items = heads.map(h => {
+    h.id = h.id || ('sec-' + Math.random().toString(36).slice(2,7));
+    const depth = h.tagName === 'H3' ? 'depth-3' : '';
+    return `<li class="${depth}"><a href="javascript:void(0)" data-jump="${h.id}">${h.textContent.replace('§','').trim()}</a></li>`;
+  }).join('');
+  list.innerHTML = items;
+  if(listM) listM.innerHTML = items;
+
+  document.querySelectorAll('.toc-list a[data-jump]').forEach(a => {
+    a.addEventListener('click', () => jumpTo(a.dataset.jump));
+  });
+
+  // 滚动高亮
+  const allLinks = () => [...document.querySelectorAll('.toc-list a[data-jump]')];
+  let ticking = false;
+  const onScroll = () => {
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      const y = window.scrollY + 110;
+      let cur = heads[0];
+      heads.forEach(h => { if(h.offsetTop <= y) cur = h; });
+      allLinks().forEach(a => a.classList.toggle('active', a.dataset.jump === cur.id));
+      updateProgress();
+    });
+  };
+  window.removeEventListener('scroll', onScroll._bound || (()=>{}));
+  onScroll._bound = onScroll;
+  window.addEventListener('scroll', onScroll, { passive:true });
+  onScroll();
+}
+
+function jumpTo(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY - 84;
+  window.scrollTo({ top:top, behavior:'smooth' });
+  closeDrawer();
+}
+
+/* ---------- 进度条 ---------- */
+function updateProgress(){
+  const bar = EL('progress');
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const p = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+  bar.style.width = (p * 100).toFixed(2) + '%';
+}
+window.addEventListener('scroll', () => { updateProgress(); }, { passive:true });
+window.addEventListener('resize', () => { updateProgress(); });
+
+/* ---------- lightbox ---------- */
+function openLightbox(src){
+  EL('lbImg').src = src;
+  EL('lightbox').classList.add('on');
+}
+EL('lbClose').addEventListener('click', () => EL('lightbox').classList.remove('on'));
+EL('lightbox').addEventListener('click', e => { if(e.target === EL('lightbox')) EL('lightbox').classList.remove('on'); });
+
+/* ---------- 抽屉 ---------- */
+function openDrawer(){
+  EL('drawer').classList.add('on'); EL('scrim').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+function closeDrawer(){
+  EL('drawer').classList.remove('on'); EL('scrim').classList.remove('on');
+  document.body.style.overflow = '';
+}
+EL('menuBtn').addEventListener('click', openDrawer);
+EL('drawerClose').addEventListener('click', closeDrawer);
+EL('scrim').addEventListener('click', closeDrawer);
+
+/* ---------- 主题 ---------- */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  EL('iconMoon').style.display = t === 'dark' ? 'none' : '';
+  EL('iconSun').style.display = t === 'dark' ? '' : 'none';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const tc = SITE.site.themeColor || {};
+  if(meta) meta.setAttribute('content', t === 'dark' ? (tc.dark || '#12110e') : (tc.light || '#faf7f0'));
+  try{ localStorage.setItem('mdreader-theme', t); }catch(e){}
+}
+EL('themeBtn').addEventListener('click', () => {
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+/* ---------- 路由 ---------- */
+function parseRoute(){
+  const h = location.hash.replace(/^#\/?/, '');
+  if(!h) return { type:'home' };
+  if(h.startsWith('a/')) return { type:'doc', path: decodeURIComponent(h.slice(2)) };
+  return { type:'home' };
+}
+function onRoute(){
+  const r = parseRoute();
+  if(r.type === 'home'){ state.current = null; renderHome(); }
+  else renderDoc(r.path, false);
+}
+window.addEventListener('hashchange', onRoute);
+EL('brandHome').addEventListener('click', e => { e.preventDefault(); location.hash = '#/'; });
+
+/* ---------- 本地文件夹：存储与扫描 ---------- */
+const IMG_RE = /\.(png|jpe?g|webp|gif|svg|avif|bmp)$/i;
+
+function idbOpen(){
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('mdreader', 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+    };
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function idbGet(k){
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('kv','readonly');
+    const g = tx.objectStore('kv').get(k);
+    g.onsuccess = () => res(g.result);
+    g.onerror = () => rej(g.error);
+  });
+}
+async function idbSet(k, v){
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('kv','readwrite');
+    tx.objectStore('kv').put(v, k);
+    tx.oncomplete = () => res(true);
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function walkHandle(dir, base, out){
+  for await (const [name, h] of dir.entries()){
+    if(name.startsWith('.')) continue;
+    const p = base ? base + '/' + name : name;
+    if(h.kind === 'directory') await walkHandle(h, p, out);
+    else out[p] = h;
+  }
+}
+
+function detectPrefix(keys){
+  const hit = keys.find(k => /content\//i.test(k));
+  if(!hit) return '';
+  const m = hit.match(/^(.*?)content\//i);
+  return m ? m[0] : '';
+}
+function stripPrefixMap(map){
+  const keys = Object.keys(map);
+  const prefix = detectPrefix(keys);
+  if(!prefix) return map;
+  const out = Object.create(null);
+  keys.forEach(k => { if(k.indexOf(prefix) === 0) out[k.slice(prefix.length)] = map[k]; });
+  if(!Object.keys(out).some(k => /\.md$/i.test(k))) return map;
+  return out;
+}
+
+async function filesFromHandles(handles){
+  const map = Object.create(null);
+  const keys = Object.keys(handles);
+  for(const k of keys){
+    if(!/\.md$/i.test(k) && !IMG_RE.test(k)) continue;
+    try{ map[k] = await handles[k].getFile(); }catch(e){}
+  }
+  return map;
+}
+
+function releaseBlobs(){
+  for(const k in state.files){
+    const u = state.files[k] && state.files[k].url;
+    if(u && u.indexOf('blob:') === 0){ try{ URL.revokeObjectURL(u); }catch(e){} }
+  }
+  state.files = Object.create(null);
+}
+
+async function buildFromFileMap(inputMap, dirName, handle){
+  const map = stripPrefixMap(inputMap);
+  const keys = Object.keys(map);
+  const mdPaths = keys.filter(k => /\.md$/i.test(k)).sort();
+  if(!mdPaths.length) throw new Error('这个文件夹里没有 .md 文件');
+  if(mdPaths.length > 800) throw new Error('文章超过 800 篇，请选更具体的文件夹');
+
+  releaseBlobs();
+  let total = 0;
+  keys.forEach(k => {
+    if(!IMG_RE.test(k)) return;
+    const f = map[k];
+    if(!f || typeof f.size !== 'number' || f.size > 12 * 1024 * 1024) return;
+    total += f.size;
+    if(total > 80 * 1024 * 1024) return;
+    state.files[k] = { url: URL.createObjectURL(f), blob: f };
+  });
+
+  const docs = [];
+  for(const p of mdPaths){
+    const f = map[p];
+    let text = '';
+    try{ text = await f.text(); }catch(e){ continue; }
+    const { meta } = parseFrontMatter(text);
+    const dir = p.split('/').slice(0, -1).join('/');
+    const folder = dir.split('/').pop() || '';
+    const title = meta.title || folder || p.replace(/\.md$/i, '');
+    let cover = String(meta.cover || '').trim();
+    if(!cover){
+      const pre = dir ? dir + '/' : '';
+      cover = ['cover.jpg','cover.png','cover.webp','cover.jpeg'].find(n => map[pre + n]) || '';
+    }
+    const tags = Array.isArray(meta.tags)
+      ? meta.tags
+      : String(meta.tags || '').split(',').map(s => s.trim()).filter(Boolean);
+    const lm = f.lastModified ? new Date(f.lastModified).toISOString().slice(0,10) : '';
+    docs.push({
+      path: p, dir, cat: dir.split('/')[0] || '未分类',
+      title, subtitle: meta.subtitle || '', date: meta.date || lm,
+      tags, summary: meta.summary || '', cover,
+      words: countWords(text), raw: text
+    });
+  }
+
+  state.docs = docs.map(normalizeDoc);
+  state.mode = 'folder';
+  state.dirName = dirName || 'content';
+  state.current = null;
+  state.route = { type:'home' };
+  if(handle){
+    state.handle = handle;
+    state.pendingHandle = null;
+    try{ await idbSet('handle', handle); }catch(e){}
+  }
+  try{
+    const slim = state.docs.map(d => ({
+      path:d.path, title:d.title, subtitle:d.subtitle, date:d.date,
+      tags:d.tags, summary:d.summary, cover:d.cover, words:d.words, raw:d.raw
+    }));
+    localStorage.setItem('mdreader-cache-v1', JSON.stringify({ docs:slim, dirName:state.dirName, at:Date.now() }));
+    localStorage.setItem('mdreader-synced', new Date().toLocaleString('zh-CN'));
+  }catch(e){ console.warn('cache write failed', e); }
+  hideGate();
+  buildTree();
+  renderHome();
+  markBar();
+}
+
+/* ---------- 引导与状态条 ---------- */
+function showGate(title, desc, btn){
+  if(title) EL('gateTitle').textContent = title;
+  if(desc) EL('gateDesc').innerHTML = desc;
+  EL('gateOpenText').textContent = btn || '选择 content 文件夹';
+  EL('gate').classList.remove('off');
+  document.body.style.overflow = 'hidden';
+}
+function hideGate(){
+  EL('gate').classList.add('off');
+  document.body.style.overflow = '';
+}
+
+function markBar(){
+  const bar = EL('localBar');
+  if(!bar) return;
+  bar.hidden = false;
+  const btn = (act, text) => `<button class="act" data-act="${act}">${text}</button>`;
+  if(state.mode === 'github'){
+    bar.innerHTML = `<i></i><span>来源 <b>${esc(GH.owner + '/' + GH.repo)}</b> · ${state.docs.length} 篇 · 上传 md 后刷新即见</span><span style="flex:1"></span>${btn('reload','刷新')}`;
+    const lbl = EL('modeLabel');
+    if(lbl) lbl.textContent = '内容源：GitHub 仓库';
+    return;
+  }
+  if(state.mode === 'folder' || state.mode === 'cache'){
+    let when = '';
+    try{ when = localStorage.getItem('mdreader-synced') || ''; }catch(e){}
+    if(state.mode === 'cache'){
+      bar.innerHTML = `<i></i><span>显示上次读取的内容${when ? '（' + esc(when) + '）' : ''} · ${state.docs.length} 篇 · 想看最新改动就点右侧</span><span style="flex:1"></span>${btn('reload','同步最新')}${btn('pick','换文件夹')}`;
+    } else {
+      bar.innerHTML = `<i></i><span>已连接 <b>${esc(state.dirName)}</b> · ${state.docs.length} 篇 · 读的是磁盘上的 md 原文${when ? ' · ' + esc(when) : ''}</span><span style="flex:1"></span>${btn('reload','重新读取')}${btn('pick','换文件夹')}`;
+    }
+  } else if(state.pendingHandle){
+    bar.innerHTML = `<i></i><span>上次的文件夹还记着，点一下恢复访问</span><span style="flex:1"></span>${btn('resume','继续读取')}`;
+  } else {
+    bar.innerHTML = `<i></i><span>还没有连接文件夹</span><span style="flex:1"></span>${btn('pick','选择文件夹')}`;
+  }
+  const fbtn = EL('folderBtn');
+  if(fbtn) fbtn.classList.toggle('on', state.mode === 'folder');
+  const label = EL('modeLabel');
+  if(label) label.textContent = state.mode === 'folder' ? '内容源：本地 content 文件夹' : '内容源：未连接';
+}
+
+/* ---------- 打开与读取 ---------- */
+async function pickFolder(){
+  if(state.picking) return;
+  state.picking = true;
+  try{
+    if(window.showDirectoryPicker){
+      let picked = null;
+      try{
+        picked = await window.showDirectoryPicker({ id:'mdreader-content', mode:'read' });
+      }catch(e){
+        if(e && e.name === 'AbortError') return;
+        if(!(e && (e.name === 'SecurityError' || e.name === 'NotAllowedError'))){
+          console.warn('showDirectoryPicker failed, fallback to input', e);
+        }
+      }
+      if(picked){ await loadFromHandle(picked); return; }
+    }
+    EL('dirInput').click();
+  } finally {
+    state.picking = false;
+  }
+}
+
+async function loadFromHandle(h){
+  if(state.busy) return;
+  state.busy = true;
+  EL('gateOpenText').textContent = '正在读取…';
+  try{
+    if(h.queryPermission){
+      let p = await h.queryPermission({ mode:'read' });
+      if(p !== 'granted') p = await h.requestPermission({ mode:'read' });
+      if(p !== 'granted') throw new Error('没有获得文件夹读取权限');
+    }
+    const handles = Object.create(null);
+    await walkHandle(h, '', handles);
+    const files = await filesFromHandles(handles);
+    await buildFromFileMap(files, h.name || 'content', h);
+  }catch(e){
+    console.error(e);
+    if(e && (e.name === 'AbortError' || e.name === 'NotAllowedError')){
+      showGate('没有读到文件夹', '权限被取消，可以再试一次。', '重新选择文件夹');
+    } else {
+      showGate('读取失败', esc(e.message || '未知错误') + '<br>请确认选中的文件夹里有 <b>index.md</b> 和图片。', '重新选择文件夹');
+    }
+  } finally {
+    state.busy = false;
+    if(state.mode !== 'folder') EL('gateOpenText').textContent = '选择 content 文件夹';
+  }
+}
+
+async function resumeHandle(){
+  const h = state.pendingHandle || state.handle;
+  if(!h) return pickFolder();
+  if(h.requestPermission){
+    try{
+      const p = await h.requestPermission({ mode:'read' });
+      if(p === 'granted'){ await loadFromHandle(h); return; }
+    }catch(e){ console.warn(e); }
+  }
+  state.pendingHandle = null;
+  await pickFolder();
+}
+
+async function openFlow(){
+  if(state.pendingHandle) await resumeHandle();
+  else await pickFolder();
+}
+
+/* ---------- 事件绑定 ---------- */
+function bindUi(){
+  EL('gateOpen').addEventListener('click', openFlow);
+  EL('folderBtn').addEventListener('click', openFlow);
+  EL('localBar').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if(!b) return;
+    const act = b.dataset.act;
+    if(act === 'pick') pickFolder();
+    else if(act === 'resume') resumeHandle();
+    else if(act === 'reload'){
+      if(state.handle) loadFromHandle(state.handle);
+      else if(state.pendingHandle) resumeHandle();
+      else pickFolder();
+    }
+  });
+  EL('dirInput').addEventListener('change', async e => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if(!files.length) return;
+    const map = Object.create(null);
+    files.forEach(f => { map[(f.webkitRelativePath || f.name).replace(/\\/g,'/')] = f; });
+    try{
+      const first = files[0].webkitRelativePath || '';
+      await buildFromFileMap(map, first.split('/')[0] || 'content', null);
+    }catch(err){
+      showGate('读取失败', esc(err.message || '未知错误'), '重新选择文件夹');
+    }
+  });
+}
+
+/* ---------- GitHub 读取 ---------- */
+async function fetchTree(force){
+  const cacheKey = 'mdr-gh-tree';
+  if(!force){
+    try{
+      const c = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+      if(c && c.owner === GH.owner && c.repo === GH.repo && Date.now() - c.at < 120000) return c.paths;
+    }catch(e){}
+  }
+
+  const branches = [GH.branch, 'main', 'master', 'gh-pages'].filter((b, i, a) => b && a.indexOf(b) === i);
+  let paths = null, usedBranch = GH.branch, lastErr = null;
+
+  for(const b of branches){
+    const api = 'https://api.github.com/repos/' + GH.owner + '/' + GH.repo + '/git/trees/' + b + '?recursive=1';
+    const res = await fetch(api, { headers:{ 'Accept':'application/vnd.github+json' }, cache:'no-store' });
+    if(res.ok){
+      const json = await res.json();
+      paths = (json.tree || []).filter(t => t.type === 'blob').map(t => t.path);
+      usedBranch = b;
+      break;
+    }
+    if(res.status === 403 || res.status === 429) throw new Error('GitHub 接口限流了，等一分钟再刷新');
+    if(res.status === 404){
+      lastErr = new Error('仓库不存在，或者不是公开仓库');
+      continue;
+    }
+    throw new Error('GitHub 接口返回 ' + res.status);
+  }
+
+  if(!paths) throw lastErr || new Error('读取失败');
+  GH.branch = usedBranch;
+  try{ localStorage.setItem(cacheKey, JSON.stringify({ at:Date.now(), owner:GH.owner, repo:GH.repo, branch:usedBranch, paths })); }catch(e){}
+  return paths;
+}
+
+function buildDocFromText(text, rootRelPath, allPaths){
+  const { meta } = parseFrontMatter(text);
+  const dir = rootRelPath.split('/').slice(0, -1).join('/');
+  const folder = dir.split('/').pop() || '';
+  const title = meta.title || folder || rootRelPath.split('/').pop().replace(/\.md$/i,'');
+  let cover = String(meta.cover || '').trim();
+  if(!cover){
+    const pre = (GH.root + (dir ? '/' + dir : '') + '/');
+    cover = ['cover.jpg','cover.png','cover.webp','cover.jpeg'].find(n => allPaths.indexOf(pre + n) >= 0) || '';
+  }
+  const tags = Array.isArray(meta.tags)
+    ? meta.tags
+    : String(meta.tags || '').split(',').map(s => s.trim()).filter(Boolean);
+  return {
+    path: rootRelPath, dir, cat: dir.split('/')[0] || '未分类',
+    title, subtitle: meta.subtitle || '', date: meta.date || '',
+    tags, summary: meta.summary || '', cover,
+    words: countWords(text), raw: text
+  };
+}
+
+async function loadFromGitHub(force){
+  EL('content').innerHTML = '<div class="loading">正在读取仓库…</div>';
+  try{
+    const allPaths = await fetchTree(force);
+    const mdPaths = allPaths
+      .filter(p => p.indexOf(GH.root + '/') === 0 && /\.md$/i.test(p) && !/\/README\.md$/i.test(p))
+      .sort();
+
+    if(!mdPaths.length) throw new Error('仓库里 ' + GH.root + '/ 下没有 md 文件');
+
+    const docs = [];
+    const batchSize = 10;
+    for(let i = 0; i < mdPaths.length; i += batchSize){
+      const batch = mdPaths.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(async p => {
+        try{
+          const res = await fetch(rawUrl(p), { cache:'no-store' });
+          if(!res.ok) return null;
+          const text = await res.text();
+          return buildDocFromText(text, p.slice(GH.root.length + 1), allPaths);
+        }catch(e){ return null; }
+      }));
+      results.forEach(d => { if(d) docs.push(d); });
+      if(mdPaths.length > batchSize){
+        EL('content').innerHTML = '<div class="loading">正在读取 ' + docs.length + ' / ' + mdPaths.length + ' 篇…</div>';
+      }
+    }
+
+    if(!docs.length) throw new Error('md 文件都读取失败了');
+    state.docs = docs.map(normalizeDoc);
+    state.mode = 'github';
+    buildTree();
+    markBar();
+    if(state.route.type === 'doc' && state.docs.some(d => d.path === state.route.path)){
+      renderDoc(state.route.path, false);
+    } else {
+      state.current = null;
+      state.route = { type:'home' };
+      renderHome();
+    }
+  }catch(e){
+    console.error(e);
+    EL('content').innerHTML =
+      '<div class="home"><div class="hero"><div class="eyebrow">Read Error</div>' +
+      '<h1>仓库没读到</h1><p>' + esc(e.message || '未知错误') + '</p>' +
+      '<p style="color:var(--muted);font-size:13px">检查：仓库是否 <b>公开</b>、是否有 <code>' + esc(GH.root) + '/</code> 目录、分支名是否写对。</p>' +
+      '</div></div>';
+    markBar();
+  }
+}
+
+function showSetup(){
+  EL('content').innerHTML =
+    '<div class="home"><div class="hero"><div class="eyebrow">Setup</div>' +
+    '<h1>还没认出仓库</h1>' +
+    '<p>如果你是通过 GitHub Pages 打开的（地址形如 <code>用户名.github.io/仓库名/</code>），页面会自己认出仓库，不用填任何东西。</p>' +
+    '<p style="color:var(--muted);font-size:13px">只有在本地双击 html 预览时，浏览器拿不到仓库信息，才需要在 <code>site-config.js</code> 里补 <code>github.owner</code> 与 <code>github.repo</code>。</p>' +
+    '</div></div>';
+}
+
+function reloadSource(){
+  try{ localStorage.removeItem('mdr-gh-tree'); }catch(e){}
+  loadFromGitHub(true);
+}
+
+function applySite(){
+  const s = SITE.site;
+  document.title = s.title;
+  document.querySelectorAll('.brand-mark').forEach(el => { el.textContent = s.mark; });
+  document.querySelectorAll('.brand-name').forEach(el => { el.textContent = s.name; });
+  document.querySelectorAll('.brand-sub').forEach(el => { el.textContent = s.sub; });
+  const foot = EL('footText');
+  if(foot) foot.textContent = s.footer;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta){
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    meta.setAttribute('content', dark ? (s.themeColor.dark || '#12110e') : (s.themeColor.light || '#faf7f0'));
+  }
+}
+
+function bindGlobal(){
+  const rb = EL('refreshBtn');
+  if(rb) rb.addEventListener('click', reloadSource);
+  const bar = EL('localBar');
+  if(bar) bar.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if(b && b.dataset.act === 'reload') reloadSource();
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ EL('lightbox').classList.remove('on'); closeDrawer(); }
+  });
+}
+
+/* ---------- 启动 ---------- */
+async function boot(){
+  let saved = null;
+  try{ saved = localStorage.getItem('mdreader-theme'); }catch(e){}
+  const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(saved || (dark ? 'dark' : 'light'));
+  applySite();
+  bindGlobal();
+
+  const src = resolveSource();
+  if(!src){
+    showSetup();
+    return;
+  }
+  await loadFromGitHub(false);
+}
+
+function renderEmptyHome(){
+  EL('content').innerHTML = '<div class="home"><div class="hero">' +
+    '<div class="eyebrow">Field Notes &amp; Essays</div>' +
+    '<h1>把字写在纸上，<br>把读发生在<em>当下</em>。</h1>' +
+    '<p>这里没有预先生成的页面。每一篇都还是一个 <code>.md</code> 文件，只有你打开它的这一刻，它才被翻译成你能读的样子。</p>' +
+    '</div></div>';
+}
+
+if(/[?&]debug/.test(location.search)) window.__mdreader = { build: buildFromFileMap, state: state };
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+
+})();
+</script>
+</body>
+</html>
