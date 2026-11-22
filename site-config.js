@@ -12,7 +12,7 @@ window.MD_SITE = {
 
   /* ---------- 站点标识 ---------- */
   site: {
-    mark:  '兔',                          // 左上角小方块里的字（一个字）
+    mark:  'Tu',                          // 左上角小方块里的字（一个字）
     name:  'MrTu',                        // 站点名
     sub:   'BlockInsight',                    // 站名旁边的小字
     title: 'MrTu · BlockInsight',             // 浏览器标签页标题
