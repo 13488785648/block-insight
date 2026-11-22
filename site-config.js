@@ -23,8 +23,8 @@ window.MD_SITE = {
   /* ---------- 首页大标题区 ---------- */
   hero: {
     eyebrow: 'Field Notes & Essays',     // 标题上方的小字
-    title:   '把字写在纸上，<br>把读发生在<em>当下</em>。',  // 可用 <br> <em>
-    desc:    '这里没有预先生成的页面。每一篇都还是一个 <code>.md</code> 文件，只有你打开它的这一刻，它才被翻译成你能读的样子。'
+    title:   '积木学习法<em>拆解</em>和<em>随笔</em>',  // 可用 <br> <em>
+    desc:    'MrTu的随笔文集，Substack：BlockInsight，公众号：兔小师，知乎：兔小师'
   },
 
   /* ---------- 内容源：GitHub ---------- */
